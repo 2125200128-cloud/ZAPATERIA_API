@@ -3,12 +3,74 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use App\Models\Producto;
 use App\Models\Marca;
 use App\Models\Proveedor;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class ProductoController extends Controller
 {
+    /**
+     * Subida de imágenes a Cloudinary con fallback por API HTTP
+     */
+    private function subirImagen($archivo, string $carpeta): ?string
+    {
+        $cloudinaryUrl = config('cloudinary.cloud_url') ?? env('CLOUDINARY_URL');
+
+        if (!$cloudinaryUrl) {
+            Log::warning("Cloudinary sin configurar (falta CLOUDINARY_URL en .env). No se subió la imagen en '{$carpeta}'.");
+            return null;
+        }
+
+        try {
+            $subida = Cloudinary::upload($archivo->getRealPath(), ['folder' => $carpeta]);
+
+            if (is_object($subida) && method_exists($subida, 'getSecurePath')) {
+                return $subida->getSecurePath();
+            }
+            if (is_array($subida) && isset($subida['secure_url'])) {
+                return $subida['secure_url'];
+            }
+        } catch (\Throwable $e) {
+            Log::error("Fallo con paquete Cloudinary (" . $e->getMessage() . "). Iniciando subida directa por HTTP REST API...");
+        }
+
+        try {
+            if (preg_match('/cloudinary:\/\/([^:]+):(.+)@([^@\/]+)$/', trim($cloudinaryUrl), $matches)) {
+                $apiKey    = $matches[1];
+                $apiSecret = $matches[2];
+                $cloudName = $matches[3];
+
+                $timestamp = time();
+                $stringToSign = "folder={$carpeta}&timestamp={$timestamp}" . $apiSecret;
+                $signature    = sha1($stringToSign);
+
+                $response = Http::attach(
+                    'file',
+                    file_get_contents($archivo->getRealPath()),
+                    $archivo->getClientOriginalName()
+                )->post("https://api.cloudinary.com/v1_1/{$cloudName}/image/upload", [
+                    'api_key'   => $apiKey,
+                    'timestamp' => $timestamp,
+                    'signature' => $signature,
+                    'folder'    => $carpeta,
+                ]);
+
+                if ($response->successful()) {
+                    return $response->json('secure_url');
+                }
+
+                Log::error("Error en API REST de Cloudinary: " . $response->body());
+            }
+        } catch (\Throwable $e) {
+            Log::error("Fallo crítico en subida fallback por HTTP: " . $e->getMessage());
+        }
+
+        return null;
+    }
+
     public function inicio()
     {
         $productos = Producto::with(['marca', 'proveedor'])
@@ -92,13 +154,6 @@ class ProductoController extends Controller
             return response()->json(['message' => 'Producto no encontrado'], 404);
         }
 
-        // El listado agrupa las tallas de un mismo zapato por estos campos
-        // (ver inicio()). Si solo se actualizara esta fila, cambiar por
-        // ejemplo el precio o el nombre separaría esta talla del resto como
-        // si fuera "otro producto" — así que los campos compartidos se
-        // buscan y actualizan en todas las tallas hermanas (detectadas ANTES
-        // de aplicar los cambios). Talla y estatus sí son de esta fila sola
-        // (una talla se puede agotar sin afectar a las demás).
         $hermanos = Producto::where('id', '!=', $producto->id)
             ->where('nombre', $producto->nombre)
             ->where('descripcion', $producto->descripcion)
@@ -143,12 +198,12 @@ class ProductoController extends Controller
         $producto->save();
 
         foreach (['imagen1', 'imagen2', 'imagen3'] as $campo) {
-            if ($request->hasFile($campo)) {
-                $file = $request->file($campo);
-                $nombre = 'producto_' . $producto->id . '_' . $campo . '.' . $file->getClientOriginalExtension();
-                $ruta = $file->storeAs('imagenes/productos', $nombre, 'public');
-                $producto->{$campo} = url('storage/' . $ruta);
-                $producto->save();
+            if ($request->hasFile($campo) && $request->file($campo)->isValid()) {
+                $url = $this->subirImagen($request->file($campo), 'productos');
+                if ($url) {
+                    $producto->{$campo} = $url;
+                    $producto->save();
+                }
             }
         }
 
@@ -170,11 +225,8 @@ class ProductoController extends Controller
         // tallas creadas (es el mismo modelo de zapato, solo cambia la talla).
         $urls = ['imagen1' => null, 'imagen2' => null, 'imagen3' => null];
         foreach (array_keys($urls) as $campo) {
-            if ($request->hasFile($campo)) {
-                $file = $request->file($campo);
-                $nombre = 'producto_' . $campo . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $ruta = $file->storeAs('imagenes/productos', $nombre, 'public');
-                $urls[$campo] = url('storage/' . $ruta);
+            if ($request->hasFile($campo) && $request->file($campo)->isValid()) {
+                $urls[$campo] = $this->subirImagen($request->file($campo), 'productos');
             }
         }
 

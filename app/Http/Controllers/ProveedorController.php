@@ -69,14 +69,6 @@ class ProveedorController extends Controller
         $proveedor->estatus = $request->input('estatus');
         $proveedor->save();
 
-        if ($request->hasFile('imagen')) {
-            $file = $request->file('imagen');
-            $nombre = 'proveedor_' . $proveedor->id . '.' . $file->getClientOriginalExtension();
-            $ruta = $file->storeAs('imagenes/proveedores', $nombre, 'public');
-            $proveedor->imagen = url('storage/' . $ruta);
-            $proveedor->save();
-        }
-
         return response()->json(['message' => 'Proveedor actualizado'], 200);
     }
 
@@ -93,16 +85,7 @@ class ProveedorController extends Controller
         $proveedor->municipio = $request->input('municipio');
         $proveedor->codigo_postal = $request->input('codigo_postal');
         $proveedor->estatus = $request->input('estatus');
-        $proveedor->imagen = 'sin-imagen.jpg';
         $proveedor->save();
-
-        if ($request->hasFile('imagen')) {
-            $file = $request->file('imagen');
-            $nombre = 'proveedor_' . $proveedor->id . '.' . $file->getClientOriginalExtension();
-            $ruta = $file->storeAs('imagenes/proveedores', $nombre, 'public');
-            $proveedor->imagen = url('storage/' . $ruta);
-            $proveedor->save();
-        }
 
         return response()->json(['message' => 'Proveedor guardado exitosamente.'], 201);
     }

@@ -17,7 +17,10 @@ class Marca extends Model
 
     public function proveedor()
     {
-        return $this->belongsTo(Proveedor::class);
+        return $this->belongsTo(Proveedor::class)->withDefault([
+            'id' => null,
+            'nombre' => 'Sin proveedor',
+        ]);
     }
 
     public function productos()
