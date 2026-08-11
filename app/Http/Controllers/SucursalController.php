@@ -38,24 +38,24 @@ class SucursalController extends Controller
 
         try {
             if (preg_match('/cloudinary:\/\/([^:]+):(.+)@([^@\/]+)$/', trim($cloudinaryUrl), $matches)) {
-                $apiKey    = $matches[1];
+                $apiKey = $matches[1];
                 $apiSecret = $matches[2];
                 $cloudName = $matches[3];
 
                 $timestamp = time();
                 $stringToSign = "folder={$carpeta}&timestamp={$timestamp}" . $apiSecret;
-                $signature    = sha1($stringToSign);
+                $signature = sha1($stringToSign);
 
                 $response = Http::attach(
                     'file',
                     file_get_contents($archivo->getRealPath()),
                     $archivo->getClientOriginalName()
                 )->post("https://api.cloudinary.com/v1_1/{$cloudName}/image/upload", [
-                    'api_key'   => $apiKey,
-                    'timestamp' => $timestamp,
-                    'signature' => $signature,
-                    'folder'    => $carpeta,
-                ]);
+                            'api_key' => $apiKey,
+                            'timestamp' => $timestamp,
+                            'signature' => $signature,
+                            'folder' => $carpeta,
+                        ]);
 
                 if ($response->successful()) {
                     return $response->json('secure_url');
@@ -86,12 +86,14 @@ class SucursalController extends Controller
     {
         $id = $request->route('id');
         $sucursal = Sucursal::find($id);
-        
+
         if (!$sucursal) {
             return response()->json(['message' => 'Sucursal no encontrada'], 404);
         }
+
+        // Obtener solo empleados activos para la lista de encargados
+        $empleados = Empleado::where('estatus', 'Activo')->get();
         
-        $empleados = Empleado::all();
         return response()->json(compact('sucursal', 'empleados'), 200);
     }
 
@@ -99,11 +101,11 @@ class SucursalController extends Controller
     {
         $id = $request->route('id');
         $sucursal = Sucursal::find($id);
-        
+
         if (!$sucursal) {
             return response()->json(['message' => 'Sucursal no encontrada'], 404);
         }
-        
+
         $sucursal->nombre = $request->input('nombre');
         $sucursal->empleado_id = $request->input('empleado_id');
         $sucursal->calle = $request->input('calle');
@@ -154,14 +156,14 @@ class SucursalController extends Controller
     {
         $id = $request->route('id');
         $sucursal = Sucursal::find($id);
-        
+
         if (!$sucursal) {
             return response()->json(['message' => 'Sucursal no encontrada'], 404);
         }
-        
+
         $sucursal->estatus = 'Inactivo';
         $sucursal->save();
-        
+
         return response()->json(['message' => 'Sucursal eliminada'], 200);
     }
 
@@ -169,11 +171,11 @@ class SucursalController extends Controller
     {
         $id = $request->route('id');
         $sucursal = Sucursal::find($id);
-        
+
         if (!$sucursal) {
             return response()->json(['message' => 'Sucursal no encontrada'], 404);
         }
-        
+
         return response()->json(['sucursal' => $sucursal], 200);
     }
 }

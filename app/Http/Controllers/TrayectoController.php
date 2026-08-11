@@ -305,33 +305,33 @@ class TrayectoController extends Controller
         ]);
     }
 
-    public function registrarUbicacion(Request $request)
-    {
-        $id = $request->route('id');
-        $trayecto = Trayecto::find($id);
+   public function registrarUbicacion(Request $request)
+{
+    $id = $request->route('id');
+    $trayecto = Trayecto::find($id);
 
-        if (!$trayecto) {
-            return response()->json(['error' => 'Trayecto no encontrado'], 404);
-        }
-
-        $validado = $request->validate([
-            'latitud' => 'required|numeric|between:-90,90',
-            'longitud' => 'required|numeric|between:-180,180',
-        ]);
-
-        TrayectoUbicacion::create([
-            'trayecto_id' => $trayecto->id,
-            'latitud' => $validado['latitud'],
-            'longitud' => $validado['longitud'],
-        ]);
-
-        // El primer ping de ubicación del chofer es lo que marca que ya
-        // arrancó la entrega.
-        if ($trayecto->estatus === 'Aceptado') {
-            $trayecto->estatus = 'En ruta';
-            $trayecto->save();
-        }
-
-        return response()->json(['ok' => true]);
+    if (!$trayecto) {
+        return response()->json(['error' => 'Trayecto no encontrado'], 404);
     }
+
+    $validado = $request->validate([
+        'latitud' => 'required|numeric|between:-90,90',
+        'longitud' => 'required|numeric|between:-180,180',
+    ]);
+
+    TrayectoUbicacion::create([
+        'trayecto_id' => $trayecto->id,
+        'latitud' => $validado['latitud'],
+        'longitud' => $validado['longitud'],
+    ]);
+
+    if ($trayecto->estatus === 'Aceptado') {
+        $trayecto->estatus = 'En ruta';
+        $trayecto->save();
+    }
+
+    // El front usa esto para saber cuándo apagar el GPS y avisarle al
+    // chofer que ya terminó — antes solo devolvía {ok:true}.
+    return response()->json(['ok' => true, 'estatus' => $trayecto->estatus]);
+}
 }

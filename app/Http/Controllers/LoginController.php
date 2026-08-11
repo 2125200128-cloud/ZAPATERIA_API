@@ -46,6 +46,7 @@ class LoginController extends Controller
                 'usuario' => $empleado->usuario,
                 'rol' => $empleado->rol,
                 'estatus' => $empleado->estatus,
+                'imagen' => $empleado->imagen,
                 'esAdministrador' => $empleado->esAdministrador(),
                 'esMatriz' => $empleado->esMatriz(),
                 'sucursal' => $miSucursal ? [

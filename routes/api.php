@@ -102,9 +102,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::match(['put', 'patch'], 'pedidos/{id}', [PedidoController::class, 'actualizar']);
     Route::delete('pedidos/{id}', [PedidoController::class, 'eliminar']);
     Route::get('pedidos/{id}/assign', [PedidoController::class, 'aceptarFormulario']);
+    Route::get('pedidos/{id}/detalle', [PedidoController::class, 'verDetalle']);   // ← nueva
     Route::post('pedidos/{id}/accept', [PedidoController::class, 'aceptar']);
     Route::post('pedidos/{id}/cancel', [PedidoController::class, 'eliminar']);
-    Route::get('pedidos/{id}/pdf', [PedidoController::class, 'pdf']);
 
     Route::get('trayectos', [TrayectoController::class, 'listado']);
     Route::get('trayectos/{id}', [TrayectoController::class, 'editar']);

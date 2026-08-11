@@ -16,23 +16,10 @@ use App\Models\Trayecto;
 
 class PedidoController extends Controller
 {
-    // Un Encargado de sucursal (que no sea de la matriz) solo ve/toca sus
-    // propios pedidos; Administrador y el Encargado de la matriz ven todo.
     private function puedeAsignar(): bool
     {
         $empleado = Empleado::auth();
         return $empleado !== null && ($empleado->esAdministrador() || $empleado->esMatriz());
-    }
-
-    private function autorizarPedido(Pedido $pedido)
-    {
-        if ($this->puedeAsignar()) {
-            return;
-        }
-        $miSucursal = Empleado::auth()?->miSucursal();
-        if (!$miSucursal || $pedido->empleado_id !== $miSucursal->empleado_id) {
-            abort(403, 'No tienes acceso a este pedido.');
-        }
     }
 
     public function inicio()
@@ -86,10 +73,30 @@ class PedidoController extends Controller
         return response()->json(compact('pedido', 'sucursales', 'productos', 'sucursalActual'));
     }
 
-    // Lee producto_id[]/cantidad[] del formulario una sola vez (filas vacías
-    // o con producto inexistente se ignoran). Se reusa tanto para validar
-    // stock como para crear los detalles, así ambos ven exactamente la
-    // misma lista.
+    // Detalle de solo lectura de un pedido. A diferencia de editar() (que
+    // es solo el formulario de edición, matriz/admin), esto también lo
+    // puede usar el encargado dueño del pedido — por ejemplo, para ver o
+    // descargar su propia nota en PDF.
+    public function verDetalle(Request $request)
+    {
+        $id = $request->route('id');
+        $pedido = Pedido::with('detallePedidos.producto')->find($id);
+        if (!$pedido) {
+            return response()->json(['message' => 'Pedido no encontrado'], 404);
+        }
+
+        if (!$this->puedeAsignar()) {
+            $miSucursal = Empleado::auth()?->miSucursal();
+            if (!$miSucursal || $pedido->empleado_id !== $miSucursal->empleado_id) {
+                abort(403, 'No tienes acceso a este pedido.');
+            }
+        }
+
+        $sucursalActual = optional($pedido->empleado)->sucursales->first();
+
+        return response()->json(compact('pedido', 'sucursalActual'));
+    }
+
     private function detallesSolicitados(Request $request)
     {
         $productosIds = $request->input('producto_id', []);
@@ -155,8 +162,6 @@ class PedidoController extends Controller
         if ($this->puedeAsignar()) {
             $sucursal = Sucursal::find($request->input('sucursal_id'));
         } else {
-            // Un encargado de sucursal solo pide para la suya — se ignora
-            // cualquier sucursal_id que venga del formulario.
             $sucursal = $empleado?->miSucursal();
         }
 
@@ -187,10 +192,6 @@ class PedidoController extends Controller
             return response()->json(['errors' => $erroresStock, 'input' => $request->all()], 422);
         }
 
-        // Todo o nada: si algo falla a medio camino (pedido, detalles o
-        // descuento de stock), no debe quedar nada a medias. Ya no se asigna
-        // chofer/carro aquí — eso ahora lo hace la matriz al aceptar el
-        // pedido (ver pendientes()/aceptar()).
         DB::transaction(function () use ($sucursal, $request, $detallesSolicitados, $matriz) {
             $pedido = new Pedido();
             $pedido->empleado_id = $sucursal->empleado_id;
@@ -209,8 +210,12 @@ class PedidoController extends Controller
         return response()->json(['message' => 'Pedido guardado. Un encargado de la matriz lo aceptará y asignará la entrega.']);
     }
 
-    // Pedidos que ya se pueden aceptar: siguen Pendiente y todavía no
-    // tienen ningún trayecto asignado.
+    // Antes: whereDoesntHave('trayectos') excluía un pedido si tenía
+    // CUALQUIER trayecto, incluyendo uno cancelado — así que un pedido
+    // cuyo primer intento de entrega se canceló quedaba huérfano para
+    // siempre, invisible aquí y sin forma de reasignarle un nuevo
+    // trayecto. Ahora solo se excluye si tiene un trayecto activo de
+    // verdad (mismo criterio que ya usa TrayectoController::disponibles()).
     public function pendientes()
     {
         if (!$this->puedeAsignar()) {
@@ -218,7 +223,9 @@ class PedidoController extends Controller
         }
 
         $pedidos = Pedido::where('estatus', 'Pendiente')
-            ->whereDoesntHave('trayectos')
+            ->whereDoesntHave('trayectos', function ($query) {
+                $query->whereNotIn('estatus', ['Entregado', 'Cancelado']);
+            })
             ->with(['empleado.sucursales', 'detallePedidos.producto'])
             ->get();
 
@@ -310,5 +317,4 @@ class PedidoController extends Controller
 
         return response()->json(compact('pedido', 'sucursalActual'));
     }
-
 }
