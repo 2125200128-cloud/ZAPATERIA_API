@@ -102,15 +102,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::match(['put', 'patch'], 'pedidos/{id}', [PedidoController::class, 'actualizar']);
     Route::delete('pedidos/{id}', [PedidoController::class, 'eliminar']);
     Route::get('pedidos/{id}/assign', [PedidoController::class, 'aceptarFormulario']);
-    Route::get('pedidos/{id}/detalle', [PedidoController::class, 'verDetalle']);   // ← nueva
+    Route::get('pedidos/{id}/detalle', [PedidoController::class, 'verDetalle']);  
     Route::post('pedidos/{id}/accept', [PedidoController::class, 'aceptar']);
     Route::post('pedidos/{id}/cancel', [PedidoController::class, 'eliminar']);
 
     Route::get('trayectos', [TrayectoController::class, 'listado']);
+    Route::get('trayectos/fleet-locations', [TrayectoController::class, 'ubicacionesFlota']); 
     Route::get('trayectos/{id}', [TrayectoController::class, 'editar']);
     Route::match(['put', 'patch'], 'trayectos/{id}', [TrayectoController::class, 'actualizar']);
     Route::delete('trayectos/{id}', [TrayectoController::class, 'eliminar']);
     Route::post('trayectos/{id}/confirm-arrival', [TrayectoController::class, 'confirmarLlegada']);
     Route::get('trayectos/{id}/share', [TrayectoController::class, 'compartirUbicacion']);
-    Route::get('trayectos/fleet-locations', [TrayectoController::class, 'ubicacionesFlota']);
 });

@@ -330,8 +330,8 @@ class TrayectoController extends Controller
         $trayecto->save();
     }
 
-    // El front usa esto para saber cuándo apagar el GPS y avisarle al
-    // chofer que ya terminó — antes solo devolvía {ok:true}.
+    // El front (compartir.blade.php) hace ping cada ~8s y usa este campo
+    // para saber cuándo debe dejar de pedir el GPS solo.
     return response()->json(['ok' => true, 'estatus' => $trayecto->estatus]);
 }
 }
