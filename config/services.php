@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    // Secreto compartido con zapateriagarcias para /api/trayectos/{id}/share
+    // (lo abre el chofer sin cuenta, vía un link firmado del frontend).
+    'internal_share' => [
+        'secret' => env('INTERNAL_SHARE_SECRET'),
+    ],
+
 ];

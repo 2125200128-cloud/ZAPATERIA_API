@@ -281,8 +281,23 @@ class TrayectoController extends Controller
         return response()->json($datos->values());
     }
 
+    // Sin auth:sanctum a propósito (ver routes/api.php) — solo el frontend
+    // la llama, server-to-server, con este secreto compartido en vez de un
+    // token de empleado (el chofer que abre el link no tiene cuenta).
+    private function tieneSecretoValido(Request $request): bool
+    {
+        $esperado = config('services.internal_share.secret');
+        $recibido = $request->header('X-Internal-Secret');
+
+        return $esperado && $recibido && hash_equals($esperado, $recibido);
+    }
+
     public function compartirUbicacion(Request $request)
     {
+        if (!$this->tieneSecretoValido($request)) {
+            abort(403, 'No autorizado.');
+        }
+
         $id = $request->route('id');
         $trayecto = Trayecto::find($id);
 

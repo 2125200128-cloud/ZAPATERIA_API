@@ -22,6 +22,11 @@ Route::post('trayectos/{id}/ubicacion', [TrayectoController::class, 'registrarUb
     ->name('trayecto.ubicacion')
     ->middleware('signed');
 
+// Fuera de auth:sanctum a propósito: la llama el frontend server-to-server
+// (con el secreto compartido, ver puedeCompartir() en el controlador) desde
+// el link firmado que abre el chofer, que no tiene cuenta ni sesión propia.
+Route::get('trayectos/{id}/share', [TrayectoController::class, 'compartirUbicacion']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('auth/logout', [LoginController::class, 'logout']);
     Route::get('user', function (Request $request) {
@@ -88,6 +93,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('inventarios', [InventarioController::class, 'guardar']);
     // ¡orden importa! antes de {id}, si no lo intercepta como si "datos-formulario" fuera un id
     Route::get('inventarios/datos-formulario', [InventarioController::class, 'datosFormulario']);
+    Route::post('inventarios/reabastecer', [InventarioController::class, 'reabastecer']);
     // era 'editar' — ese método no existe en InventarioController, tronaba
     Route::get('inventarios/{id}', [InventarioController::class, 'mostrar']);
     Route::match(['put', 'patch'], 'inventarios/{id}', [InventarioController::class, 'actualizar']);
@@ -112,5 +118,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::match(['put', 'patch'], 'trayectos/{id}', [TrayectoController::class, 'actualizar']);
     Route::delete('trayectos/{id}', [TrayectoController::class, 'eliminar']);
     Route::post('trayectos/{id}/confirm-arrival', [TrayectoController::class, 'confirmarLlegada']);
-    Route::get('trayectos/{id}/share', [TrayectoController::class, 'compartirUbicacion']);
 });
